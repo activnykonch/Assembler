@@ -28,6 +28,60 @@ fruit dw ?
 score dw 0
 	
 .code
+oldseg0e dw ?
+oldofs0e dw ?
+
+ChangeDelay:
+	cmp ah,01h
+	je cas1
+	cmp ah,00h
+	je cas2
+	jmp ext
+cas1:
+	cmp al,05h
+	je ext
+	add al,1
+	jmp ext
+cas2:
+	cmp al,00h
+	je ext
+	sub al,1
+	jmp ext
+ext:
+	mov ah,00h
+        iret
+
+    set_int proc
+	push	es
+        mov     ah,035h
+        mov     al,00eh
+        int     021h
+        mov     word ptr [cs:oldseg0e],es
+        mov     word ptr [cs:oldofs0e],bx
+        push    ds
+        mov     ax,cs
+        mov     ds,ax
+        lea     dx,ChangeDelay
+        mov     ah,025h
+        mov     al,00eh
+        int     021h
+	pop 	ds
+        pop     es
+        ret
+    set_int endp
+
+    restore_int proc
+        push    ds
+        mov     ax, word ptr [oldseg0e]
+        mov     ds,ax
+        mov     dx, word ptr [oldofs0e]
+        mov     ah,025h
+        mov     al,0eh
+        int     021h
+        pop     ds
+        ret
+    restore_int endp
+
 delay proc
 	push bx
 	push cx
@@ -129,6 +183,7 @@ go:
 	
 	mov ax, 0003h
 	int 10h
+	call restore_int
 	mov ax,4c00h
 	int 21h
 game_over endp
@@ -230,6 +285,7 @@ strt:
 _ex:
 	mov ax, 0003h
 	int 10h
+	call restore_int
 	mov ax,4c00h
 	int 21h
 cont:
@@ -293,19 +349,19 @@ right:
 up_speed:
 	cmp ah, UpSpeed
 	jne down_speed
-	cmp delaylvl, 05h
-	je en
-	
-	add delaylvl, 1 
+	mov ax,delaylvl
+	mov ah,01h
+	int 0eh 
+	mov delaylvl,ax
 	jmp pen
 down_speed:
 	cmp ah, DownSpeed
 	jne escb
-	cmp delaylvl, 00h
-	je en
-	
-	sub delaylvl, 1 
-	jmp pen	
+	mov ax,delaylvl
+	mov ah,00h
+	int 0eh
+	mov delaylvl,ax
+	jmp pen
 pen:
 	call show_nums
 	jmp en
@@ -349,8 +405,10 @@ check_border endp
 start:
 	mov ax,@data
 	mov ds,ax
-	mov es,ax
-	
+	mov es,ax	
+
+	call set_int
+
 	mov ax, 000dh
 	int 10h
 
